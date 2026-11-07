@@ -6,7 +6,7 @@ import argparse
 import os
 import sys
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 from .connection import P21Connection, PrinterError, find_paired_printer
 from .render import DEFAULT_PHOTO_GAMMA, prepare_photo, test_pattern, text_label
@@ -64,7 +64,10 @@ def cmd_text(conn, args) -> None:
 
 def cmd_image(conn, args) -> None:
     label = LabelSize.parse(args.label)
-    img = Image.open(args.path)
+    img = ImageOps.exif_transpose(Image.open(args.path))
+    if args.crop:
+        x, y, w, h = (int(v) for v in args.crop.split(","))
+        img = img.crop((x, y, x + w, y + h))
     if img.width > img.height:  # landscape artwork reads along the strip
         img = img.rotate(90, expand=True)
     img.thumbnail((label.width_dots, label.length_dots), Image.Resampling.LANCZOS)
@@ -103,6 +106,7 @@ def main(argv: list[str] | None = None) -> None:
     i.add_argument("path")
     i.add_argument("--gamma", type=float, default=DEFAULT_PHOTO_GAMMA,
                    help=f"midtone brightening before dithering (default {DEFAULT_PHOTO_GAMMA})")
+    i.add_argument("--crop", metavar="X,Y,W,H", help="crop the source image first (pixels)")
     i.add_argument("--no-dither", action="store_true", help="plain threshold, for logos/line art")
     print_opts(i)
 

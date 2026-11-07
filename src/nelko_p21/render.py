@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from .tspl import LabelSize
 
@@ -64,11 +64,11 @@ DEFAULT_PHOTO_GAMMA = 3.0  # see experiments/gamma_test.py – compensates therm
 
 
 def prepare_photo(img: Image.Image, gamma: float = DEFAULT_PHOTO_GAMMA) -> Image.Image:
-    """Grayscale, brighten midtones by `gamma`, Floyd-Steinberg dither to pure B/W.
+    """Grayscale + autocontrast, brighten midtones by `gamma`, Floyd-Steinberg dither to pure B/W.
 
     Thermal dots spread, so a 50 % dither pattern prints almost black.
     Pre-brightening keeps midtones grey on paper.
     """
-    gray = img.convert("L")
+    gray = ImageOps.autocontrast(img.convert("L"), cutoff=1)
     lut = [round(255 * (v / 255) ** (1 / gamma)) for v in range(256)]
     return gray.point(lut).convert("1", dither=Image.Dither.FLOYDSTEINBERG).convert("L")
