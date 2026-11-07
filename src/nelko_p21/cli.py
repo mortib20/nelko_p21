@@ -9,7 +9,7 @@ import sys
 from PIL import Image
 
 from .connection import P21Connection, PrinterError, find_paired_printer
-from .render import test_pattern, text_label
+from .render import DEFAULT_PHOTO_GAMMA, prepare_photo, test_pattern, text_label
 from .tspl import LabelSize, build_print_job
 
 # Read-only queries discovered so far (see docs/protocol.md)
@@ -67,8 +67,16 @@ def cmd_image(conn, args) -> None:
     img = Image.open(args.path)
     if img.width > img.height:  # landscape artwork reads along the strip
         img = img.rotate(90, expand=True)
-    img.thumbnail((label.width_dots, label.length_dots))
-    _print(conn, img, args)
+    img.thumbnail((label.width_dots, label.length_dots), Image.Resampling.LANCZOS)
+    if img.mode in ("RGBA", "LA", "P"):  # flatten transparency onto white
+        bg = Image.new("RGB", img.size, "white")
+        bg.paste(img.convert("RGBA"), mask=img.convert("RGBA").getchannel("A"))
+        img = bg
+    if not args.no_dither:
+        img = prepare_photo(img, args.gamma)
+    canvas = Image.new("L", (label.width_dots, label.length_dots), 255)
+    canvas.paste(img.convert("L"), ((canvas.width - img.width) // 2, (canvas.height - img.height) // 2))
+    _print(conn, canvas, args)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -93,6 +101,9 @@ def main(argv: list[str] | None = None) -> None:
     print_opts(t)
     i = sub.add_parser("print-image", help="print an image file")
     i.add_argument("path")
+    i.add_argument("--gamma", type=float, default=DEFAULT_PHOTO_GAMMA,
+                   help=f"midtone brightening before dithering (default {DEFAULT_PHOTO_GAMMA})")
+    i.add_argument("--no-dither", action="store_true", help="plain threshold, for logos/line art")
     print_opts(i)
 
     args = p.parse_args(argv)

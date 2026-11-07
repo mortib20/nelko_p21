@@ -58,3 +58,17 @@ def test_pattern(label: LabelSize) -> Image.Image:
     font = load_font(14)
     d.text((26, 6), "P21", font=font, fill=0)
     return img
+
+
+DEFAULT_PHOTO_GAMMA = 3.0  # see experiments/gamma_test.py – compensates thermal dot gain
+
+
+def prepare_photo(img: Image.Image, gamma: float = DEFAULT_PHOTO_GAMMA) -> Image.Image:
+    """Grayscale, brighten midtones by `gamma`, Floyd-Steinberg dither to pure B/W.
+
+    Thermal dots spread, so a 50 % dither pattern prints almost black.
+    Pre-brightening keeps midtones grey on paper.
+    """
+    gray = img.convert("L")
+    lut = [round(255 * (v / 255) ** (1 / gamma)) for v in range(256)]
+    return gray.point(lut).convert("1", dither=Image.Dither.FLOYDSTEINBERG).convert("L")

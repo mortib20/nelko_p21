@@ -57,3 +57,15 @@ PRINT 1
   orientation with `DIRECTION 1,1`, no extra label fed.
 - The printer sends no reply to a print job.
 - `FORMFEED` gets no reply (feed effect not yet verified).
+
+## Image quality (experiments)
+
+- Resolution: 1-dot (0.125 mm) lines resolve cleanly in both directions.
+- Strong thermal dot gain at `DENSITY 15`: a plain Floyd-Steinberg dither of a
+  linear gradient prints ~40 % solid black. Pre-brightening with gamma ≈ 3
+  gives a usable grey ramp (`experiments/gamma_test.py`). Floyd-Steinberg looks
+  more natural than ordered (Bayer) dithering.
+- A dense, mostly-black job once left the printer in status `0x20` (blue LED,
+  beeping) until power-cycled; it printed after the restart. Cause unclear
+  (overheating? connection closed too early?). Since waiting for status `00`
+  before disconnecting, it has not recurred.
