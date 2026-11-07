@@ -1,4 +1,4 @@
-"""Command line interface: `nelko-p21 status|print-text|print-image|test`."""
+"""Command line interface: `nelko-p21 status|feed|test|print-text|print-image`."""
 
 from __future__ import annotations
 
@@ -49,6 +49,11 @@ def _print(conn: P21Connection, img: Image.Image, args) -> None:
     print("job sent")
 
 
+def cmd_feed(conn: P21Connection, _args) -> None:
+    reply = conn.query(b"FORMFEED\r\n", wait=3.0)
+    print(f"FORMFEED sent, reply: {reply.hex(' ') or '(none)'}")
+
+
 def cmd_test(conn, args) -> None:
     _print(conn, test_pattern(LabelSize.parse(args.label)), args)
 
@@ -72,6 +77,7 @@ def main(argv: list[str] | None = None) -> None:
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("status", help="send read-only queries and show raw replies")
+    sub.add_parser("feed", help="feed one label (TSPL FORMFEED)")
 
     def print_opts(sp):
         sp.add_argument("--label", default="14x40", help="label size WxL[+gap] in mm (default 14x40)")
@@ -90,7 +96,7 @@ def main(argv: list[str] | None = None) -> None:
     print_opts(i)
 
     args = p.parse_args(argv)
-    handler = {"status": cmd_status, "test": cmd_test, "print-text": cmd_text, "print-image": cmd_image}[args.cmd]
+    handler = {"status": cmd_status, "feed": cmd_feed, "test": cmd_test, "print-text": cmd_text, "print-image": cmd_image}[args.cmd]
 
     if getattr(args, "dry_run", False):
         handler(None, args)

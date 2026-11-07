@@ -10,8 +10,10 @@ print labels from your PC instead of the phone app.
 
 - [x] Bluetooth connection (RFCOMM / SPP)
 - [x] Raw status queries
-- [ ] Decoded status (paper, battery, lid)
-- [ ] Verified print output
+- [x] Printing images/text on 14×40 mm labels (verified)
+- [x] Status byte (ready / lid / paper)
+- [ ] Battery value, roll info
+- [ ] Other label sizes
 
 ## Setup
 

@@ -19,11 +19,24 @@ TSPL (TSC printer language) dialect. Commands are ASCII lines terminated by `\r\
 
 | Command | Example reply | Meaning |
 |---|---|---|
-| `ESC ! ?` | `04` | TSPL status byte. In standard TSPL `0x04` = out of paper (*unconfirmed for P21*) |
-| `ESC ! o` | `04 0c 01 12 03 00 03 01 12 12 15 28 0f 0e 29 06` | *unknown*, 16 bytes |
+| `ESC ! ?` | `00` | status byte, see below |
+| `ESC ! o` | `00 0c 01 12 03 00 03 01 12 12 15 28 0f 0e ed 03` | byte 0 = status byte; bytes 2–13 are all zero while no roll is detected, so they likely carry the roll (RFID) info; last 2 bytes vary; rest *unknown* |
 | `BATTERY?` | `BATTERY 75 00 \r\n` | battery, raw bytes after the space (*encoding unknown*) |
 | `CONFIG?` | `CONFIG 00 cb 00 00 03 04 02 04 02 00 \r\n` | `00 cb` = 203 dpi; rest *unknown* |
 | `~!T`, `~!I`, `~!@` | – | no reply |
+
+### Status byte (`ESC ! ?`)
+
+Observed values:
+
+| Value | Observed when | LED |
+|---|---|---|
+| `00` | ready, roll detected – prints fine | green |
+| `01` | lid open, or roll not detected after pulling paper out | red, beeps |
+| `04` | paper error (roll misaligned); print jobs are silently ignored | – |
+
+Matches standard TSPL (`0x01` head open, `0x04` out of paper). A power cycle
+cleared the error state after re-seating the roll.
 
 ### Printing
 
@@ -38,4 +51,9 @@ PRINT 1
 ```
 
 - Print head: 96 dots (12 bytes) wide, 203 dpi ≈ 8 dots/mm.
-- Bitmap rows are MSB-first; per TSPL a `0` bit prints black.
+- Bitmap rows are MSB-first; a `0` bit prints black (**confirmed**).
+- **Confirmed on 14×40 mm labels:** the job above with a 96×320 bitmap prints
+  the full label, centred (≈1 mm unprinted margin on each long side), correct
+  orientation with `DIRECTION 1,1`, no extra label fed.
+- The printer sends no reply to a print job.
+- `FORMFEED` gets no reply (feed effect not yet verified).
