@@ -70,7 +70,10 @@ def cmd_image(conn, args) -> None:
         img = img.crop((x, y, x + w, y + h))
     if img.width > img.height:  # landscape artwork reads along the strip
         img = img.rotate(90, expand=True)
-    img.thumbnail((label.width_dots, label.length_dots), Image.Resampling.LANCZOS)
+    if args.fill:  # crop to the label's aspect ratio and cover it completely
+        img = ImageOps.fit(img, (label.width_dots, label.length_dots), Image.Resampling.LANCZOS)
+    else:
+        img.thumbnail((label.width_dots, label.length_dots), Image.Resampling.LANCZOS)
     if img.mode in ("RGBA", "LA", "P"):  # flatten transparency onto white
         bg = Image.new("RGB", img.size, "white")
         bg.paste(img.convert("RGBA"), mask=img.convert("RGBA").getchannel("A"))
@@ -107,6 +110,8 @@ def main(argv: list[str] | None = None) -> None:
     i.add_argument("--gamma", type=float, default=DEFAULT_PHOTO_GAMMA,
                    help=f"midtone brightening before dithering (default {DEFAULT_PHOTO_GAMMA})")
     i.add_argument("--crop", metavar="X,Y,W,H", help="crop the source image first (pixels)")
+    i.add_argument("--fill", action="store_true",
+                   help="fill the whole label (centre-crops to the label's aspect; combine with --crop to pick the region)")
     i.add_argument("--no-dither", action="store_true", help="plain threshold, for logos/line art")
     print_opts(i)
 
