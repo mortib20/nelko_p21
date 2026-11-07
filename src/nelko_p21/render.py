@@ -32,16 +32,21 @@ def text_label(text: str, label: LabelSize, border: bool = True) -> Image.Image:
     margin = 4
     if border:
         d.rectangle([margin, margin, h - 1 - margin, w - 1 - margin], outline=0, width=3)
+    # "\n" (or a literal "\n" typed on the command line) starts a new line
+    text = text.replace("\\n", "\n")
+    inner = 6 * margin if border else 2 * margin
     size = w - 4 * margin
     font = load_font(size)
     while size > 8:
         font = load_font(size)
-        l, t, r, b = d.textbbox((0, 0), text, font=font)
-        if r - l <= h - 6 * margin and b - t <= w - 6 * margin:
+        l, t, r, b = d.multiline_textbbox((0, 0), text, font=font, align="center", spacing=size // 6)
+        if r - l <= h - inner and b - t <= w - inner:
             break
-        size -= 2
-    l, t, r, b = d.textbbox((0, 0), text, font=font)
-    d.text(((h - (r - l)) / 2 - l, (w - (b - t)) / 2 - t), text, font=font, fill=0)
+        size -= 1
+    spacing = size // 6
+    l, t, r, b = d.multiline_textbbox((0, 0), text, font=font, align="center", spacing=spacing)
+    d.multiline_text(((h - (r - l)) / 2 - l, (w - (b - t)) / 2 - t), text, font=font,
+                     fill=0, align="center", spacing=spacing)
     return canvas.rotate(90, expand=True)
 
 

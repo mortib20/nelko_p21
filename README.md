@@ -34,6 +34,7 @@ print labels from your PC instead of the phone app.
 nelko-p21 status                         # ready?, battery, charging, roll size (--raw for bytes)
 nelko-p21 test --label 14x40             # calibration pattern
 nelko-p21 print-text "Hello" --label 14x40
+nelko-p21 print-text '6 TB HDD\nNAS Mirror'    # two centred lines
 nelko-p21 print-image logo.png
 nelko-p21 print-text "Hi" --dry-run --save-preview preview.png
 ```
