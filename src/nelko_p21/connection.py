@@ -8,6 +8,7 @@ is harmless. We open the RFCOMM socket ourselves, no `rfcomm bind` needed.
 
 from __future__ import annotations
 
+import errno
 import re
 import socket
 import subprocess
@@ -46,11 +47,22 @@ class P21Connection:
     def __exit__(self, *exc) -> None:
         self.close()
 
-    def open(self) -> None:
-        s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
-        s.settimeout(self.timeout)
-        s.connect((self.address, self.channel))
-        self.sock = s
+    def open(self, retries: int = 5) -> None:
+        # Reconnecting right after a close fails with EBUSY until the
+        # previous RFCOMM link is torn down, so retry for a few seconds.
+        for attempt in range(retries):
+            s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
+            s.settimeout(self.timeout)
+            try:
+                s.connect((self.address, self.channel))
+            except OSError as e:
+                s.close()
+                if e.errno != errno.EBUSY or attempt == retries - 1:
+                    raise
+                time.sleep(1.0)
+                continue
+            self.sock = s
+            return
 
     def close(self) -> None:
         if self.sock:
@@ -83,3 +95,50 @@ class P21Connection:
     def query(self, cmd: bytes, wait: float = 1.0) -> bytes:
         self.send(cmd)
         return self.read(wait)
+
+    # --- status ---------------------------------------------------------
+
+    STATUS_READY = 0x00
+    STATUS_LID_OPEN = 0x01      # also: roll not detected
+    STATUS_PAPER_ERROR = 0x04
+    STATUS_BUSY = 0x20          # printing / receiving a job
+
+    def status(self) -> int | None:
+        """TSPL status byte (`ESC ! ?`), or None if the printer did not answer."""
+        reply = self.query(b"\x1b!?\r\n", wait=1.0)
+        return reply[0] if reply else None
+
+    def wait_until_done(self, timeout: float = 30.0, poll: float = 0.5) -> int | None:
+        """Poll until the printer leaves the busy state. Returns the final status."""
+        deadline = time.monotonic() + timeout
+        st = self.status()
+        while st == self.STATUS_BUSY and time.monotonic() < deadline:
+            time.sleep(poll)
+            st = self.status()
+        return st
+
+    def print_job(self, job: bytes, timeout: float = 30.0) -> int | None:
+        """Send a complete job and block until it has been printed.
+
+        Closing the socket right after sendall() truncates the job: the printer
+        then sits in status 0x20 (blue LED) waiting for the rest and has to be
+        power-cycled. So always wait for it to finish before disconnecting.
+        """
+        st = self.status()
+        if st not in (self.STATUS_READY, None):
+            raise PrinterError(st)
+        self.send(job)
+        time.sleep(1.0)
+        return self.wait_until_done(timeout)
+
+
+class PrinterError(RuntimeError):
+    MESSAGES = {
+        0x01: "lid open or label roll not detected (re-seat roll, close lid, power-cycle)",
+        0x04: "paper error (re-seat the roll; a power-cycle clears it)",
+        0x20: "printer busy – a previous job may be stuck; power-cycle the printer",
+    }
+
+    def __init__(self, status: int):
+        self.status = status
+        super().__init__(f"printer status 0x{status:02x}: {self.MESSAGES.get(status, 'unknown state')}")

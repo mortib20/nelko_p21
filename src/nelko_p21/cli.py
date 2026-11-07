@@ -8,7 +8,7 @@ import sys
 
 from PIL import Image
 
-from .connection import P21Connection, find_paired_printer
+from .connection import P21Connection, PrinterError, find_paired_printer
 from .render import test_pattern, text_label
 from .tspl import LabelSize, build_print_job
 
@@ -42,11 +42,11 @@ def _print(conn: P21Connection, img: Image.Image, args) -> None:
     if args.dry_run:
         return
     job = build_print_job(img, label, density=args.density, copies=args.copies)
-    conn.send(job)
-    reply = conn.read(wait=3.0)
-    if reply:
-        print(f"printer replied: {reply.hex(' ')}  {reply!r}")
-    print("job sent")
+    try:
+        st = conn.print_job(job)
+    except PrinterError as e:
+        sys.exit(str(e))
+    print("printed" if st == P21Connection.STATUS_READY else f"job sent, final status: {st}")
 
 
 def cmd_feed(conn: P21Connection, _args) -> None:
