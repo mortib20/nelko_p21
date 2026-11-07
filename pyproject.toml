@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nelko-p21"
+version = "0.1.0"
+description = "Print to the Nelko P21 Bluetooth label printer from Linux, without the phone app"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = ["pillow>=10"]
+classifiers = [
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Printing",
+]
+
+[project.scripts]
+nelko-p21 = "nelko_p21.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nelko_p21"]
