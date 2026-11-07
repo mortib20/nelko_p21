@@ -28,10 +28,33 @@ def resolve_address(arg: str | None) -> str:
     return addr
 
 
-def cmd_status(conn: P21Connection, _args) -> None:
+STATUS_NAMES = {0x00: "ready", 0x01: "lid open / no roll", 0x04: "paper error", 0x20: "busy"}
+
+
+def decode(name: str, reply: bytes) -> str:
+    """Best-effort interpretation of a reply (see docs/protocol.md)."""
+    if name.startswith("status") and reply:
+        return STATUS_NAMES.get(reply[0], "unknown")
+    if name.startswith("info") and len(reply) >= 16:
+        if not any(reply[2:14]):
+            return "no roll detected"
+        return f"roll: {reply[13]}x{reply[11]} mm (unconfirmed)"
+    if name == "battery" and reply.startswith(b"BATTERY ") and len(reply) >= 10:
+        level, charging = reply[8], reply[9]
+        return f"battery {level:x} % (BCD, unconfirmed), {'charging' if charging else 'not charging'}"
+    if name == "config" and reply.startswith(b"CONFIG ") and len(reply) >= 17:
+        dpi = int.from_bytes(reply[7:9], "big")
+        return f"{dpi} dpi, {'on charger' if reply[16] else 'on battery'}"
+    return ""
+
+
+def cmd_status(conn: P21Connection, args) -> None:
     for name, q in QUERIES.items():
         reply = conn.query(q)
-        print(f"{name:16} {reply.hex(' ') or '(no reply)'}   {reply!r}")
+        line = f"{name:16} {decode(name, reply) or '-'}"
+        if args.raw:
+            line += f"   [{reply.hex(' ') or 'no reply'}]"
+        print(line)
 
 
 def _print(conn: P21Connection, img: Image.Image, args) -> None:
@@ -95,7 +118,8 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--address", help="Bluetooth MAC (default: $NELKO_P21_ADDRESS or paired device named P21*)")
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    sub.add_parser("status", help="send read-only queries and show raw replies")
+    st = sub.add_parser("status", help="show printer status, battery and roll info")
+    st.add_argument("--raw", action="store_true", help="also show raw reply bytes")
     sub.add_parser("feed", help="feed one label (TSPL FORMFEED)")
 
     def print_opts(sp):

@@ -12,7 +12,7 @@ print labels from your PC instead of the phone app.
 - [x] Raw status queries
 - [x] Printing images/text on 14×40 mm labels (verified)
 - [x] Status byte (ready / lid / paper)
-- [ ] Battery value, roll info
+- [x] Battery level + charging flag, roll size (partly unconfirmed)
 - [ ] Other label sizes
 
 ## Setup
@@ -31,7 +31,7 @@ print labels from your PC instead of the phone app.
 ## Usage
 
 ```sh
-nelko-p21 status                         # raw replies of read-only queries
+nelko-p21 status                         # ready?, battery, charging, roll size (--raw for bytes)
 nelko-p21 test --label 14x40             # calibration pattern
 nelko-p21 print-text "Hello" --label 14x40
 nelko-p21 print-image logo.png

@@ -21,9 +21,19 @@ TSPL (TSC printer language) dialect. Commands are ASCII lines terminated by `\r\
 |---|---|---|
 | `ESC ! ?` | `00` | status byte, see below |
 | `ESC ! o` | `00 0c 01 12 03 00 03 01 12 12 15 28 0f 0e ed 03` | byte 0 = status byte; bytes 2–13 are all zero while no roll is detected, so they likely carry the roll (RFID) info; last 2 bytes vary; rest *unknown* |
-| `BATTERY?` | `BATTERY 75 00 \r\n` | battery, raw bytes after the space (*encoding unknown*) |
-| `CONFIG?` | `CONFIG 00 cb 00 00 03 04 02 04 02 00 \r\n` | `00 cb` = 203 dpi; rest *unknown* |
-| `~!T`, `~!I`, `~!@` | – | no reply |
+| `BATTERY?` | `BATTERY 75 00 \r\n` | byte 0 = level, most likely BCD percent (`0x75` = 75 %, `0x99` while charging); byte 1 = charging flag (`01` on USB power) |
+| `CONFIG?` | `CONFIG 00 cb 00 00 03 04 02 04 02 00 \r\n` | `00 cb` = 203 dpi; last byte = on charger (`01`); rest *unknown* |
+| `~!A` `~!C` `~!D` `~!E` `~!F` `~!I` `~!T` `~!@`, `ESC ! S` | – | no reply |
+| ~40 other `XXX?` guesses (`VERSION?`, `MODEL?`, `SPEED?`, …) | – | no reply |
+
+`ESC ! o` and `ESC ! ?` only answer when terminated with `\r\n`.
+
+#### `ESC ! o` roll info
+
+`00 0c 01 12 03 00 03 01 12 12 15 28 0f 0e ed 03` with a 14×40 mm roll:
+byte 11 = `0x28` = 40 (label length mm), byte 13 = `0x0e` = 14 (label width mm)
+– *hypothesis, needs a second roll size to confirm*. The last two bytes change
+between reads of the same roll (`29 06`, `0d 22`, `ed 03`); meaning unknown.
 
 ### Status byte (`ESC ! ?`)
 
