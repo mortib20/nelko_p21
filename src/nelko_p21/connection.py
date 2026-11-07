@@ -47,9 +47,10 @@ class P21Connection:
     def __exit__(self, *exc) -> None:
         self.close()
 
-    def open(self, retries: int = 5) -> None:
+    def open(self, retries: int = 15) -> None:
         # Reconnecting right after a close fails with EBUSY until the
-        # previous RFCOMM link is torn down, so retry for a few seconds.
+        # previous RFCOMM link is torn down (or while the printer is still
+        # busy printing), so retry for a while.
         for attempt in range(retries):
             s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
             s.settimeout(self.timeout)
@@ -108,16 +109,20 @@ class P21Connection:
         reply = self.query(b"\x1b!?\r\n", wait=1.0)
         return reply[0] if reply else None
 
-    def wait_until_done(self, timeout: float = 30.0, poll: float = 0.5) -> int | None:
-        """Poll until the printer leaves the busy state. Returns the final status."""
+    def wait_until_done(self, timeout: float = 60.0, poll: float = 0.5) -> int | None:
+        """Poll until the printer leaves the busy state. Returns the final status.
+
+        While rendering a dense image the printer does not answer status
+        queries at all, so "no reply" counts as busy too.
+        """
         deadline = time.monotonic() + timeout
         st = self.status()
-        while st == self.STATUS_BUSY and time.monotonic() < deadline:
+        while st in (self.STATUS_BUSY, None) and time.monotonic() < deadline:
             time.sleep(poll)
             st = self.status()
         return st
 
-    def print_job(self, job: bytes, timeout: float = 30.0) -> int | None:
+    def print_job(self, job: bytes, timeout: float = 60.0) -> int | None:
         """Send a complete job and block until it has been printed.
 
         Closing the socket right after sendall() truncates the job: the printer
@@ -136,7 +141,7 @@ class PrinterError(RuntimeError):
     MESSAGES = {
         0x01: "lid open or label roll not detected (re-seat roll, close lid, power-cycle)",
         0x04: "paper error (re-seat the roll; a power-cycle clears it)",
-        0x20: "printer busy – a previous job may be stuck; power-cycle the printer",
+        0x20: "printer busy – still printing a previous job; wait, or power-cycle if it persists",
     }
 
     def __init__(self, status: int):

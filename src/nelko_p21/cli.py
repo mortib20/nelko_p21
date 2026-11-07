@@ -46,7 +46,12 @@ def _print(conn: P21Connection, img: Image.Image, args) -> None:
         st = conn.print_job(job)
     except PrinterError as e:
         sys.exit(str(e))
-    print("printed" if st == P21Connection.STATUS_READY else f"job sent, final status: {st}")
+    if st == P21Connection.STATUS_READY:
+        print("printed")
+    elif st is None:
+        print("job sent, but the printer stopped answering for 60 s – check the LED")
+    else:
+        print(f"job sent, printer reports: {PrinterError(st)}")
 
 
 def cmd_feed(conn: P21Connection, _args) -> None:

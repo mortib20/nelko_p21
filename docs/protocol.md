@@ -65,7 +65,7 @@ PRINT 1
   linear gradient prints ~40 % solid black. Pre-brightening with gamma ≈ 3
   gives a usable grey ramp (`experiments/gamma_test.py`). Floyd-Steinberg looks
   more natural than ordered (Bayer) dithering.
-- A dense, mostly-black job once left the printer in status `0x20` (blue LED,
-  beeping) until power-cycled; it printed after the restart. Cause unclear
-  (overheating? connection closed too early?). Since waiting for status `00`
-  before disconnecting, it has not recurred.
+- While printing a dense image the printer **does not answer status
+  queries** and refuses new RFCOMM connections (`EBUSY`) for several seconds.
+  It is not hung – keep polling until `ESC ! ?` returns `00` again.
+  (An earlier "stuck" job, blue LED, was most likely the same thing.)
